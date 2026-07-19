@@ -1,0 +1,154 @@
+--- START OF FILE text/html ---
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>家族のこんだて（共有版）</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%231C2B22%22/><text x=%2250%22 y=%2265%22 font-size=%2255%22 text-anchor=%22middle%22 fill=%22%23E8A33D%22>膳</text></svg>" />
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFBF6; color: #2B231D; font-family: sans-serif; }
+  * { box-sizing: border-box; }
+  .login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; }
+  .btn { padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; margin: 10px 0; width: 100%; max-width: 300px; }
+  .btn-primary { background: #FF7A1A; color: white; }
+  .btn-outline { background: transparent; border: 2px solid #FF7A1A; color: #FF7A1A; }
+  .input-field { width: 100%; max-width: 300px; padding: 12px; border: 1px solid #F0DFCB; border-radius: 8px; margin-bottom: 10px; font-size: 16px; }
+</style>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// あなたの新しいプロジェクトの設定
+const firebaseConfig = {
+  apiKey: "AIzaSyBmpmFATX_-GupRJisoBklmXpPA_XD_x4E",
+  authDomain: "kondate-family-test.firebaseapp.com",
+  databaseURL: "https://kondate-family-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kondate-family-test",
+  storageBucket: "kondate-family-test.firebasestorage.app",
+  messagingSenderId: "411952546498",
+  appId: "1:411952546498:web:225b8c1de30362a4db315b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+const { useState, useEffect } = React;
+
+// --- メインアプリコンポーネント ---
+function App() {
+  const [user, setUser] = useState(null);
+  const [familyId, setFamilyId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    return auth.onAuthStateChanged(async (u) => {
+      if (u) {
+        setUser(u);
+        // ユーザーに紐づく家族IDをチェック
+        const snap = await db.ref(`users/${u.uid}/familyId`).get();
+        if (snap.exists()) {
+          setFamilyId(snap.val());
+        }
+      } else {
+        setUser(null);
+        setFamilyId(null);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const login = () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithRedirect(provider);
+  };
+
+  const createFamily = () => {
+    const newId = Math.random().toString(36).slice(2, 10).toUpperCase();
+    updateFamilyId(newId);
+  };
+
+  const joinFamily = (id) => {
+    if (!id) return;
+    updateFamilyId(id.trim().toUpperCase());
+  };
+
+  const updateFamilyId = async (id) => {
+    await db.ref(`users/${user.uid}/familyId`).set(id);
+    setFamilyId(id);
+  };
+
+  if (loading) return <div class="login-screen">読み込み中...</div>;
+
+  // 1. ログインしていない
+  if (!user) {
+    return (
+      <div className="login-screen">
+        <h1 style={{color:'#FF7A1A'}}>家族のこんだて</h1>
+        <p>家族で共有するためにログインしてください</p>
+        <button className="btn btn-primary" onClick={login}>Googleでログイン</button>
+      </div>
+    );
+  }
+
+  // 2. ログインしたが家族グループに未所属
+  if (!familyId) {
+    return <FamilySetup onCreate={createFamily} onJoin={joinFamily} />;
+  }
+
+  // 3. 準備完了！いつもの献立画面（※以前のロジックをここに統合）
+  return <MealPlannerMain user={user} familyId={familyId} onLogout={() => auth.signOut()} />;
+}
+
+// --- 家族設定画面 ---
+function FamilySetup({ onCreate, onJoin }) {
+  const [input, setInput] = useState("");
+  return (
+    <div className="login-screen">
+      <h2>家族グループ設定</h2>
+      <button className="btn btn-primary" onClick={onCreate}>新しく家族グループを作る</button>
+      <div style={{margin:'20px 0', color:'#9C897A'}}>または</div>
+      <p>招待コードを教えてもらった場合：</p>
+      <input 
+        className="input-field" 
+        placeholder="招待コードを入力" 
+        value={input} 
+        onChange={e => setInput(e.target.value)}
+      />
+      <button className="btn btn-outline" onClick={() => onJoin(input)}>グループに参加する</button>
+    </div>
+  );
+}
+
+// --- 献立アプリのメインロジック（前回のコードを家族ID対応に修正） ---
+function MealPlannerMain({ user, familyId, onLogout }) {
+  // ※ ここに以前提供した MealPlanner のロジックが入ります。
+  // 変更点：データの保存場所を `families/${familyId}/mealplan` に変更します。
+  return (
+    <div>
+      <div style={{padding:'10px', background:'#FFE9D6', fontSize:'12px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <span>家族ID: <strong>{familyId}</strong> (家族に教えてね)</span>
+        <button onClick={onLogout} style={{border:'none', background:'none', color:'#9C897A', textDecoration:'underline'}}>ログアウト</button>
+      </div>
+      <div style={{padding:'20px', textAlign:'center'}}>
+        <h3>共有版アプリが立ち上がりました！</h3>
+        <p>これから、これまでの「献立・買い物・レシピ」の機能を<br/>この家族ID <strong>{familyId}</strong> 専用に接続して表示します。</p>
+        <p style={{fontSize:'12px', color:'#9C897A'}}>（開発メモ：ここに以前のコードのUIを流し込みます）</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
