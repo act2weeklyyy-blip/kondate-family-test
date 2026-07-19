@@ -8,7 +8,6 @@
 <style>
   html, body { margin: 0; padding: 0; background: #FFFBF6; }
   * { box-sizing: border-box; }
-  /* ログイン・設定画面用スタイル */
   .auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background: #FFFBF6; }
   .auth-btn { padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; margin: 10px 0; width: 100%; max-width: 300px; transition: opacity 0.2s; }
   .auth-btn-primary { background: #FF7A1A; color: white; }
@@ -18,40 +17,26 @@
 <script>
   window.__pendingErrors = [];
   function __showError(msg) {
-    if (!document.body) {
-      window.__pendingErrors.push(msg);
-      return;
-    }
+    if (!document.body) { window.__pendingErrors.push(msg); return; }
     var el = document.getElementById("__error_banner__");
     if (!el) {
-      el = document.createElement("div");
-      el.id = "__error_banner__";
-      el.style.cssText =
-        "position:fixed;top:0;left:0;right:0;background:#D1553B;color:#fff;padding:10px 14px;" +
-        "font-size:12px;font-family:monospace;z-index:99999;white-space:pre-wrap;line-height:1.5;";
+      el = document.createElement("div"); el.id = "__error_banner__";
+      el.style.cssText = "position:fixed;top:0;left:0;right:0;background:#D1553B;color:#fff;padding:10px 14px;font-size:12px;font-family:monospace;z-index:99999;white-space:pre-wrap;line-height:1.5;";
       document.body.appendChild(el);
     }
     el.textContent += msg + "\n";
   }
-  window.addEventListener(
-    "unhandledrejection",
-    function (e) {
-      var msg = (e.reason && (e.reason.message || e.reason.code)) || String(e.reason);
-      __showError("エラー(Promise): " + msg);
-    }
-  );
-  window.addEventListener(
-    "error",
-    function (e) {
-      var msg = e.message || (e.error && e.error.message) || String(e);
-      var src = e.filename ? "\n(" + e.filename + ":" + e.lineno + ")" : "";
-      __showError("エラー: " + msg + src);
-    },
-    true
-  );
+  window.addEventListener("unhandledrejection", function (e) {
+    var msg = (e.reason && (e.reason.message || e.reason.code)) || String(e.reason);
+    __showError("エラー(Promise): " + msg);
+  });
+  window.addEventListener("error", function (e) {
+    var msg = e.message || (e.error && e.error.message) || String(e);
+    var src = e.filename ? "\n(" + e.filename + ":" + e.lineno + ")" : "";
+    __showError("エラー: " + msg + src);
+  }, true);
   document.addEventListener("DOMContentLoaded", function () {
-    window.__pendingErrors.forEach(__showError);
-    window.__pendingErrors = [];
+    window.__pendingErrors.forEach(__showError); window.__pendingErrors = [];
   });
 </script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
@@ -62,12 +47,12 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
-<div id="root" style="color:#9C897A;font-family:sans-serif;padding:20px;font-size:14px;">読み込み中…(この文字が消えない場合は上に表示されるエラーメッセージを教えてください)</div>
+<div id="root" style="color:#9C897A;font-family:sans-serif;padding:20px;font-size:14px;">読み込み中…</div>
 
 <script type="text/babel">
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-// --- 1. グローバル定数と初期設定 ---
+// --- 1. グローバル設定 & ユーティリティ ---
 const firebaseConfig = {
   apiKey: "AIzaSyBmpmFATX_-GupRJisoBklmXpPA_XD_x4E",
   authDomain: "kondate-family-test.firebaseapp.com",
@@ -78,129 +63,35 @@ const firebaseConfig = {
   appId: "1:411952546498:web:225b8c1de30362a4db315b"
 };
 
-// 初期化
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const auth = firebase.auth();
 const db = firebase.database();
 
-const C = {
-  bg: "#FFFBF6",
-  panel: "#FFFFFF",
-  panel2: "#FFE9D6",
-  line: "#F0DFCB",
-  mustard: "#FF7A1A",
-  tomato: "#E1432B",
-  cream: "#2B231D",
-  muted: "#9C897A"
-};
-
+const C = { bg: "#FFFBF6", panel: "#FFFFFF", panel2: "#FFE9D6", line: "#F0DFCB", mustard: "#FF7A1A", tomato: "#E1432B", cream: "#2B231D", muted: "#9C897A" };
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');`;
-
 const styles = {
-  app: {
-    minHeight: "100vh",
-    background: C.bg,
-    backgroundImage: "radial-gradient(ellipse at top left, rgba(255,122,26,0.06), transparent 60%)",
-    fontFamily: "'Inter', sans-serif",
-    color: C.cream,
-    paddingBottom: 40
-  },
+  app: { minHeight: "100vh", background: C.bg, backgroundImage: "radial-gradient(ellipse at top left, rgba(255,122,26,0.06), transparent 60%)", fontFamily: "'Inter', sans-serif", color: C.cream, paddingBottom: 40 },
   body: { padding: "14px 16px 90px", maxWidth: 720, margin: "0 auto" }
 };
 
-const inputStyle = {
-  width: "100%",
-  background: C.panel2,
-  border: `1px solid ${C.line}`,
-  borderRadius: 8,
-  padding: "9px 10px",
-  color: C.cream,
-  fontSize: 14,
-  boxSizing: "border-box",
-  outline: "none"
-};
-
-const primaryBtnStyle = {
-  flex: 1,
-  background: C.mustard,
-  color: "#26210F",
-  border: "none",
-  borderRadius: 9,
-  padding: "10px",
-  fontWeight: 700,
-  fontSize: 14,
-  cursor: "pointer"
-};
-
-const secondaryBtnStyle = {
-  flex: 1,
-  background: "transparent",
-  color: C.muted,
-  border: `1px solid ${C.line}`,
-  borderRadius: 9,
-  padding: "10px",
-  fontWeight: 600,
-  fontSize: 14,
-  cursor: "pointer"
-};
-
-const subTabBtnStyle = {
-  background: "none",
-  border: "none",
-  padding: "6px 12px",
-  color: C.cream,
-  cursor: "pointer",
-  fontSize: "13px",
-  whiteSpace: "nowrap"
-};
-
+const inputStyle = { width: "100%", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "9px 10px", color: C.cream, fontSize: 14, boxSizing: "border-box", outline: "none" };
+const primaryBtnStyle = { flex: 1, background: C.mustard, color: "#26210F", border: "none", borderRadius: 9, padding: "10px", fontWeight: 700, fontSize: 14, cursor: "pointer" };
+const secondaryBtnStyle = { flex: 1, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px", fontWeight: 600, fontSize: 14, cursor: "pointer" };
+const subTabBtnStyle = { background: "none", border: "none", padding: "6px 12px", color: C.cream, cursor: "pointer", fontSize: "13px", whiteSpace: "nowrap" };
 const labelStyle = { fontSize: 12, color: C.muted, display: "block", marginBottom: 5 };
-
-const iconBtnStyle = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  padding: 4,
-  display: "flex"
-};
+const iconBtnStyle = { background: "transparent", border: "none", cursor: "pointer", padding: 4, display: "flex" };
 
 const GEMINI_API_KEY = "AQ.Ab8RN6JpiE8VSnbFrBCR43HN9rQ_jeL7yhj2LpvigAM1J5h8EA";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`;
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
-const SLOTS = [
-  { key: "breakfast", label: "朝" },
-  { key: "lunch", label: "昼" },
-  { key: "dinner", label: "晩" }
-];
-
+const SLOTS = [{ key: "breakfast", label: "朝" }, { key: "lunch", label: "昼" }, { key: "dinner", label: "晩" }];
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-function toISODate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function sundayOf(date) {
-  const d = new Date(date);
-  const dow = d.getDay();
-  d.setDate(d.getDate() - dow);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function addDays(date, n) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d;
-}
-
-function formatMonthDay(d) {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+function toISODate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function sundayOf(date) { const d = new Date(date); d.setDate(d.getDate() - d.getDay()); d.setHours(0, 0, 0, 0); return d; }
+function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
+function formatMonthDay(d) { return `${d.getMonth() + 1}/${d.getDate()}`; }
+function safeCheckKey(name) { return String(name).replace(/[.#$/\[\]]/g, "_"); }
 
 const CATEGORY_ORDER = ["肉類", "魚介類", "野菜", "果物", "卵・乳製品", "豆・大豆製品", "米・麺・パン", "調味料・乾物", "その他"];
 const CATEGORY_KEYWORDS = {
@@ -216,24 +107,20 @@ const CATEGORY_KEYWORDS = {
 
 function categorize(name) {
   for (const cat of CATEGORY_ORDER) {
-    const kws = CATEGORY_KEYWORDS[cat];
-    if (kws && kws.some((kw) => name.includes(kw))) return cat;
+    if (CATEGORY_KEYWORDS[cat]?.some(kw => name.includes(kw))) return cat;
   }
   return "その他";
 }
 
 function emptyWeek() {
-  const w = {};
-  DAYS.forEach((d) => {
-    w[d] = { breakfast: null, lunch: null, dinner: null };
-  });
+  const w = {}; DAYS.forEach(d => { w[d] = { breakfast: null, lunch: null, dinner: null }; });
   return w;
 }
 
 const DISH_CATEGORY_ORDER = ["麺類", "ご飯・丼", "粉物・パン", "汁物・鍋", "卵料理", "魚介料理", "肉料理", "野菜・副菜", "その他"];
 const DISH_CATEGORY_KEYWORDS = {
   麺類: ["ラーメン", "うどん", "そば", "パスタ", "麺", "ちゃんぽん", "冷麺", "フォー", "ナポリタン", "カルボナーラ", "ペペロンチーノ", "ジェノベーゼ", "ボンゴレ", "ミートソース", "きしめん"],
-  "ご飯・丼": ["丼", "飯", "ライス", "チャーはん", "炒飯", "ライス", "チャーハン", "雑炊", "おにぎり", "ガパオ", "カレー", "ドリア", "パエリア", "ビビンバ", "リゾット", "寿司", "そばめし"],
+  "ご飯・丼": ["丼", "飯", "ライス", "チャーハン", "炒飯", "雑炊", "おにぎり", "ガパオ", "カレー", "ドリア", "パエリア", "ビビンバ", "リゾット", "寿司", "そばめし"],
   "粉物・パン": ["パン", "ケーキ", "ピザ", "チヂミ", "お好み焼き", "ガレット", "トースト", "餅", "サンド"],
   "汁物・鍋": ["汁", "鍋", "スープ", "シチュー", "スンドゥブ", "煮込み", "おでん"],
   卵料理: ["卵", "たまご", "オムレツ", "巣ごもり"],
@@ -244,98 +131,32 @@ const DISH_CATEGORY_KEYWORDS = {
 
 function categorizeDish(name) {
   for (const cat of DISH_CATEGORY_ORDER) {
-    const kws = DISH_CATEGORY_KEYWORDS[cat];
-    if (kws && kws.some((kw) => name.includes(kw))) return cat;
+    if (DISH_CATEGORY_KEYWORDS[cat]?.some(kw => name.includes(kw))) return cat;
   }
   return "その他";
 }
 
-function safeCheckKey(name) {
-  return String(name).replace(/[.#$/\[\]]/g, "_");
-}
-
-function cleanAndParseJSON(text) {
-  let cleaned = text.trim();
-  cleaned = cleaned.replace(/^```json/i, "");
-  cleaned = cleaned.replace(/^```/, "");
-  cleaned = cleaned.replace(/```$/, "");
-  cleaned = cleaned.trim();
-  return JSON.parse(cleaned);
-}
-
 const SAMPLE_RECIPES = [
-  {
-    id: uid(),
-    name: "肉じゃが",
-    ingredients: [
-      { id: uid(), name: "じゃがいも", amount: "3個" },
-      { id: uid(), name: "牛肉切り落とし", amount: "200g" },
-      { id: uid(), name: "玉ねぎ", amount: "1個" },
-      { id: uid(), name: "にんじん", amount: "1本" }
-    ]
-  },
-  {
-    id: uid(),
-    name: "味噌汁",
-    ingredients: [
-      { id: uid(), name: "豆腐", amount: "半丁" },
-      { id: uid(), name: "わかめ", amount: "少々" },
-      { id: uid(), name: "味噌", amount: "大さじ2" }
-    ]
-  }
+  { id: uid(), name: "肉じゃが", ingredients: [{ id: uid(), name: "じゃがいも", amount: "3個" }, { id: uid(), name: "牛肉切り落とし", amount: "200g" }, { id: uid(), name: "玉ねぎ", amount: "1個" }, { id: uid(), name: "にんじん", amount: "1本" }] },
+  { id: uid(), name: "味噌汁", ingredients: [{ id: uid(), name: "豆腐", amount: "半丁" }, { id: uid(), name: "わかめ", amount: "少々" }, { id: uid(), name: "味噌", amount: "大さじ2" }] }
 ];
 
 // --- 2. アイコンコンポーネント群 ---
 function Icon({ children, size = 16, color = "currentColor", style, strokeWidth = 2, className }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={style}
-      className={className}
-    >
-      {children}
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>{children}</svg>;
 }
-function Plus(p) {
-  return <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
-}
-function X(p) {
-  return <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>;
-}
-function Check(p) {
-  return <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>;
-}
-function Trash2(p) {
-  return <Icon {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Icon>;
-}
-function ChefHat(p) {
-  return <Icon {...p}><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></Icon>;
-}
-function ShoppingCart(p) {
-  return <Icon {...p}><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></Icon>;
-}
-function CalendarDays(p) {
-  return <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></Icon>;
-}
-function BookOpen(p) {
-  return <Icon {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></Icon>;
-}
-function ChevronDown(p) {
-  return <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>;
-}
-function Loader2(p) {
-  return <Icon {...p}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></Icon>;
-}
+function Plus(p) { return <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>; }
+function X(p) { return <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>; }
+function Check(p) { return <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>; }
+function Trash2(p) { return <Icon {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Icon>; }
+function ChefHat(p) { return <Icon {...p}><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></Icon>; }
+function ShoppingCart(p) { return <Icon {...p}><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></Icon>; }
+function CalendarDays(p) { return <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></Icon>; }
+function BookOpen(p) { return <Icon {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></Icon>; }
+function ChevronDown(p) { return <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>; }
+function Loader2(p) { return <Icon {...p}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></Icon>; }
 
-// --- 3. 認証 & 家族ID管理を行うコントローラーコンポーネント ---
+// --- 3. 認証 & コントローラー ---
 function App() {
   const [user, setUser] = useState(null);
   const [familyId, setFamilyId] = useState(null);
@@ -346,12 +167,9 @@ function App() {
       if (u) {
         setUser(u);
         const snap = await db.ref(`users/${u.uid}/familyId`).get();
-        if (snap.exists()) {
-          setFamilyId(snap.val());
-        }
+        if (snap.exists()) setFamilyId(snap.val());
       } else {
-        setUser(null);
-        setFamilyId(null);
+        setUser(null); setFamilyId(null);
       }
       setLoading(false);
     });
@@ -359,18 +177,12 @@ function App() {
 
   const login = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(() => {
-      auth.signInWithRedirect(provider);
-    });
+    auth.signInWithPopup(provider).catch(() => auth.signInWithRedirect(provider));
   };
 
   const createFamily = async () => {
-    // 0, O, 1, I, L など見分けがつきにくい文字を除外した文字種
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let newId = "";
-    for (let i = 0; i < 6; i++) {
-      newId += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let newId = "";
+    for (let i = 0; i < 6; i++) { newId += chars.charAt(Math.floor(Math.random() * chars.length)); }
     await db.ref(`users/${user.uid}/familyId`).set(newId);
     setFamilyId(newId);
   };
@@ -384,7 +196,7 @@ function App() {
 
   const resetFamilyId = async () => {
     if (!user) return;
-    if (confirm("本当にこの家族グループを抜けますか？\n（献立データは削除されませんが、招待コードを入力し直す画面に戻ります）")) {
+    if (confirm("本当にこの家族グループを抜けますか？\n（データは残りますが、別のコードを入れる画面に戻ります）")) {
       await db.ref(`users/${user.uid}/familyId`).remove();
       setFamilyId(null);
     }
@@ -413,17 +225,10 @@ function App() {
     return <FamilySetup onCreate={createFamily} onJoin={joinFamily} onLogout={() => auth.signOut()} />;
   }
 
-  return (
-    <MealPlanner
-      familyId={familyId}
-      user={user}
-      onLogout={() => auth.signOut()}
-      onResetFamily={resetFamilyId}
-    />
-  );
+  return <MealPlanner familyId={familyId} user={user} onLogout={() => auth.signOut()} onResetFamily={resetFamilyId} />;
 }
 
-// --- 家族設定（オンボーディング）画面 ---
+// オンボーディング画面
 function FamilySetup({ onCreate, onJoin, onLogout }) {
   const [input, setInput] = useState("");
   return (
@@ -432,26 +237,20 @@ function FamilySetup({ onCreate, onJoin, onLogout }) {
       <button className="auth-btn auth-btn-primary" onClick={onCreate}>新しく家族グループを作る</button>
       <div style={{ margin: '20px 0', color: '#9C897A', fontSize: '14px' }}>または</div>
       <p style={{ fontSize: '14px', marginBottom: '10px' }}>招待コードを入力して参加する：</p>
-      <input 
-        className="auth-input" 
-        placeholder="例: AB123XYZ" 
-        value={input} 
-        onChange={e => setInput(e.target.value)}
-      />
+      <input className="auth-input" placeholder="例: AB123XYZ" value={input} onChange={e => setInput(e.target.value)} />
       <button className="auth-btn auth-btn-outline" onClick={() => onJoin(input)}>グループに参加</button>
       <button onClick={onLogout} style={{ marginTop: '40px', background: 'none', border: 'none', color: '#9C897A', textDecoration: 'underline', cursor: 'pointer' }}>ログアウト</button>
     </div>
   );
 }
 
-// --- メイン献立プランナー画面 ---
+// --- 4. メインプランナー画面 ---
 function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
   const [tab, setTab] = useState("plan");
   const [recipes, setRecipes] = useState([]);
   const [planByWeek, setPlanByWeek] = useState({});
   const todayWeekStart = useMemo(() => sundayOf(new Date()), []);
-  const weekStart = todayWeekStart;
-  const weekKey = useMemo(() => toISODate(weekStart), [weekStart]);
+  const weekKey = toISODate(todayWeekStart);
   const week = planByWeek[weekKey] || emptyWeek();
   const [extraItems, setExtraItems] = useState([]);
   const [checked, setChecked] = useState({});
@@ -465,84 +264,43 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
   const [newExtra, setNewExtra] = useState("");
   const skipNextSave = useRef(false);
 
-  // AI条件設定のステート（初期値）
-  const [aiSettings, setAiSettings] = useState({
-    familySize: "大人2人",
-    allergies: "なし",
-    dislikes: "なし",
-    preferences: "バランス重視"
-  });
+  // AI条件設定
+  const [aiSettings, setAiSettings] = useState({ familySize: "大人2人", allergies: "なし", dislikes: "なし", preferences: "バランス重視" });
 
   useEffect(() => {
     const dbRef = db.ref(`families/${familyId}/mealplan`);
-    const listener = dbRef.on(
-      "value",
-      (snap) => {
-        var _a;
-        const data = snap.val() || {};
-        skipNextSave.current = true;
-        setRecipes(
-          ((_a = data.recipes) == null ? void 0 : _a.length)
-            ? data.recipes.map((r) => ({ ...r, ingredients: r.ingredients || [] }))
-            : SAMPLE_RECIPES
-        );
-        if (data.planByWeek) {
-          setPlanByWeek(data.planByWeek);
-        } else if (data.week) {
-          setPlanByWeek({ [toISODate(sundayOf(new Date()))]: data.week });
-        }
-        setExtraItems(data.extraItems || []);
-        setChecked(data.checked || {});
-        
-        // AI条件設定をDBから同期
-        if (data.aiSettings) {
-          setAiSettings(data.aiSettings);
-        }
-
-        setLoaded(true);
-      },
-      (err) => {
-        console.error("load failed", err);
-        setRecipes(SAMPLE_RECIPES);
-        setLoaded(true);
-      }
-    );
+    const listener = dbRef.on("value", (snap) => {
+      const data = snap.val() || {};
+      skipNextSave.current = true;
+      setRecipes(data.recipes?.length ? data.recipes.map(r => ({ ...r, ingredients: r.ingredients || [] })) : SAMPLE_RECIPES);
+      setPlanByWeek(data.planByWeek || {});
+      setExtraItems(data.extraItems || []);
+      setChecked(data.checked || {});
+      if (data.aiSettings) setAiSettings(data.aiSettings);
+      setLoaded(true);
+    });
     return () => dbRef.off("value", listener);
   }, [familyId]);
 
   useEffect(() => {
     if (!loaded) return;
-    if (skipNextSave.current) {
-      skipNextSave.current = false;
-      return;
-    }
+    if (skipNextSave.current) { skipNextSave.current = false; return; }
     setSaving(true);
     const t = setTimeout(() => {
       db.ref(`families/${familyId}/mealplan`).set({ recipes, planByWeek, extraItems, checked, aiSettings })
-        .catch((e) => console.error("save failed", e))
-        .finally(() => setSaving(false));
+        .catch(e => console.error("save failed", e)).finally(() => setSaving(false));
     }, 800);
     return () => clearTimeout(t);
   }, [recipes, planByWeek, extraItems, checked, loaded, familyId, aiSettings]);
 
-  const recipeMap = useMemo(() => {
-    const m = {};
-    recipes.forEach((r) => m[r.id] = r);
-    return m;
-  }, [recipes]);
-
+  const recipeMap = useMemo(() => { const m = {}; recipes.forEach(r => m[r.id] = r); return m; }, [recipes]);
   const shoppingList = useMemo(() => {
     const agg = {};
-    DAYS.forEach((d) => {
-      SLOTS.forEach((s) => {
-        var _a;
-        const rid = (_a = week[d]) == null ? void 0 : _a[s.key];
-        if (!rid) return;
-        const r = recipeMap[rid];
-        if (!r) return;
-        (r.ingredients || []).forEach((ing) => {
-          const key = ing.name.trim();
-          if (!agg[key]) agg[key] = [];
+    DAYS.forEach(d => {
+      SLOTS.forEach(s => {
+        const rid = week[d]?.[s.key]; if (!rid || !recipeMap[rid]) return;
+        recipeMap[rid].ingredients?.forEach(ing => {
+          const key = ing.name.trim(); if (!agg[key]) agg[key] = [];
           if (ing.amount) agg[key].push(ing.amount);
         });
       });
@@ -551,147 +309,79 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
   }, [week, recipeMap]);
 
   function assignSlot(wk, day, slotKey, recipeId) {
-    setPlanByWeek((pbw) => {
+    setPlanByWeek(pbw => {
       const w = pbw[wk] || emptyWeek();
       return { ...pbw, [wk]: { ...w, [day]: { ...w[day], [slotKey]: recipeId } } };
     });
     setPickerFor(null);
   }
-
   function clearSlot(wk, day, slotKey) {
-    setPlanByWeek((pbw) => {
+    setPlanByWeek(pbw => {
       const w = pbw[wk] || emptyWeek();
       return { ...pbw, [wk]: { ...w, [day]: { ...w[day], [slotKey]: null } } };
     });
   }
-
   function bulkImportRecipes(text) {
-    const names = text.split(/[\n,、]/).map((s) => s.trim()).filter(Boolean);
-    const existing = new Set(recipes.map((r) => r.name));
-    const toAdd = [];
-    names.forEach((name) => {
-      if (!existing.has(name)) {
-        existing.add(name);
-        toAdd.push({ id: uid(), name, ingredients: [] });
-      }
-    });
-    if (toAdd.length) setRecipes((rs) => [...rs, ...toAdd]);
+    const names = text.split(/[\n,、]/).map(s => s.trim()).filter(Boolean);
+    const existing = new Set(recipes.map(r => r.name)); const toAdd = [];
+    names.forEach(name => { if (!existing.has(name)) { existing.add(name); toAdd.push({ id: uid(), name, ingredients: [] }); } });
+    if (toAdd.length) setRecipes(rs => [...rs, ...toAdd]);
     setImportOpen(false);
   }
-
   function mergePhotoRecipes(extracted) {
-    const existing = new Set(recipes.map((r) => r.name));
-    const toAdd = [];
-    extracted.forEach((r) => {
-      const name = (r.name || "").trim();
-      if (!name || existing.has(name)) return;
+    const existing = new Set(recipes.map(r => r.name)); const toAdd = [];
+    extracted.forEach(r => {
+      const name = (r.name || "").trim(); if (!name || existing.has(name)) return;
       existing.add(name);
-      const ingredients = Array.isArray(r.ingredients)
-        ? r.ingredients
-            .map((i) => ({ id: uid(), name: (i.name || "").trim(), amount: (i.amount || "").trim() }))
-            .filter((i) => i.name)
-        : [];
+      const ingredients = Array.isArray(r.ingredients) ? r.ingredients.map(i => ({ id: uid(), name: (i.name || "").trim(), amount: (i.amount || "").trim() })).filter(i => i.name) : [];
       toAdd.push({ id: uid(), name, ingredients });
     });
-    if (toAdd.length) setRecipes((rs) => [...rs, ...toAdd]);
+    if (toAdd.length) setRecipes(rs => [...rs, ...toAdd]);
     return toAdd.length;
   }
-
   function saveRecipe(form) {
     if (!form.name.trim()) return;
-    const cleanIngredients = form.ingredients.filter((i) => i.name.trim());
+    const cleanIngs = form.ingredients.filter(i => i.name.trim());
     if (form.id) {
-      setRecipes((rs) => rs.map((r) => r.id === form.id ? { ...form, ingredients: cleanIngredients } : r));
+      setRecipes(rs => rs.map(r => r.id === form.id ? { ...form, ingredients: cleanIngs } : r));
     } else {
-      setRecipes((rs) => [...rs, { id: uid(), name: form.name.trim(), ingredients: cleanIngredients, category: form.category || null }]);
+      setRecipes(rs => [...rs, { id: uid(), name: form.name.trim(), ingredients: cleanIngs, category: form.category || null }]);
     }
     setRecipeForm(null);
   }
-
-  // レシピ削除
   function deleteRecipe(id) {
-    setRecipes((rs) => rs.filter((r) => r.id !== id));
-    setPlanByWeek((pbw) => {
+    setRecipes(rs => rs.filter(r => r.id !== id));
+    setPlanByWeek(pbw => {
       const next = {};
       Object.entries(pbw).forEach(([wk, w]) => {
         const nw = { ...w };
-        DAYS.forEach((d) => {
-          SLOTS.forEach((s) => {
-            var _a;
-            if (((_a = nw[d]) == null ? void 0 : _a[s.key]) === id) nw[d] = { ...nw[d], [s.key]: null };
-          });
+        DAYS.forEach(d => {
+          SLOTS.forEach(s => { if (nw[d]?.[s.key] === id) nw[d] = { ...nw[d], [s.key]: null }; });
         });
         next[wk] = nw;
       });
       return next;
     });
   }
-
-  function toggleCheck(key) {
-    setChecked((c) => {
-      const next = { ...c };
-      if (next[key]) {
-        delete next[key];
-      } else {
-        next[key] = Date.now();
-      }
-      return next;
-    });
-  }
-
-  function addExtra() {
-    if (!newExtra.trim()) return;
-    const text = newExtra.trim();
-    setExtraItems((items) => [...items, { id: uid(), text, category: categorize(text) }]);
-    setNewExtra("");
-  }
-
-  // AI画面などから買い物リストに追加するヘルパー
-  const addExtraFromAI = (text) => {
-    if (!text.trim()) return;
-    setExtraItems((items) => [...items, { id: uid(), text: text.trim(), category: categorize(text) }]);
-  };
-
-  function removeExtra(id) {
-    setExtraItems((items) => items.filter((i) => i.id !== id));
-  }
+  function toggleCheck(key) { setChecked(c => { const n = { ...c }; if (n[key]) delete n[key]; else n[key] = Date.now(); return n; }); }
+  function addExtra() { if (!newExtra.trim()) return; setExtraItems(items => [...items, { id: uid(), text: newExtra.trim(), category: categorize(newExtra) }]); setNewExtra(""); }
+  const addExtraFromAI = (text) => { if (text.trim()) setExtraItems(items => [...items, { id: uid(), text: text.trim(), category: categorize(text) }]); };
+  function removeExtra(id) { setExtraItems(items => items.filter(i => i.id !== id)); }
 
   useEffect(() => {
     if (!loaded) return;
     const ONE_DAY = 24 * 60 * 60 * 1e3;
     function cleanup() {
       const now = Date.now();
-      setChecked((c) => {
-        let changed = false;
-        const next = { ...c };
-        Object.keys(next).forEach((k) => {
-          if (typeof next[k] === "number" && now - next[k] > ONE_DAY) {
-            delete next[k];
-            changed = true;
-          }
-        });
+      setChecked(c => {
+        let changed = false; const next = { ...c };
+        Object.keys(next).forEach(k => { if (typeof next[k] === "number" && now - next[k] > ONE_DAY) { delete next[k]; changed = true; } });
         return changed ? next : c;
       });
-      setExtraItems((items) =>
-        items.filter((item) => {
-          const ts = checked[safeCheckKey(item.text.trim())];
-          return !(typeof ts === "number" && now - ts > ONE_DAY);
-        })
-      );
+      setExtraItems(items => items.filter(item => { const ts = checked[safeCheckKey(item.text.trim())]; return !(typeof ts === "number" && now - ts > ONE_DAY); }));
     }
-    cleanup();
-    const timer = setInterval(cleanup, 60 * 60 * 1e3);
-    return () => clearInterval(timer);
+    cleanup(); const timer = setInterval(cleanup, 60 * 60 * 1e3); return () => clearInterval(timer);
   }, [loaded, checked]);
-
-  if (!loaded) {
-    return (
-      <div style={{ ...styles.app, alignItems: "center", justifyContent: "center", display: "flex" }}>
-        <Loader2 className="spin" size={28} color={C.mustard} />
-        <style>{`.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.app}>
@@ -699,69 +389,13 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
       <style>{FONT_IMPORT}</style>
       <Header familyId={familyId} saving={saving} onLogout={onLogout} onResetFamily={onResetFamily} />
       <div style={styles.body}>
-        {tab === "plan" && (
-          <PlanView
-            planByWeek={planByWeek}
-            todayWeekStart={todayWeekStart}
-            recipeMap={recipeMap}
-            onPick={(wk, day, slot) => setPickerFor({ wk, day, slot })}
-            onClear={clearSlot}
-          />
-        )}
-        {tab === "recipes" && (
-          <RecipesView
-            recipes={recipes}
-            onEdit={(r) => setRecipeForm({ category: null, ...r })}
-            onNew={() => setRecipeForm({ id: null, name: "", category: null, ingredients: [{ id: uid(), name: "", amount: "" }] })}
-            onImport={() => setImportOpen(true)}
-            onPhotoImport={() => setPhotoImportOpen(true)}
-            onUrlImport={() => setUrlImportOpen(true)}
-          />
-        )}
-        {tab === "shopping" && (
-          <ShoppingView
-            list={shoppingList}
-            extraItems={extraItems}
-            checked={checked}
-            onToggle={toggleCheck}
-            newExtra={newExtra}
-            setNewExtra={setNewExtra}
-            onAddExtra={addExtra}
-            onRemoveExtra={removeExtra}
-          />
-        )}
-        {tab === "ai" && (
-          <AIView
-            recipes={recipes}
-            setRecipes={setRecipes}
-            planByWeek={planByWeek}
-            setPlanByWeek={setPlanByWeek}
-            weekKey={weekKey}
-            onAddExtra={addExtraFromAI}
-            aiSettings={aiSettings}
-            setAiSettings={setAiSettings}
-          />
-        )}
+        {tab === "plan" && <PlanView planByWeek={planByWeek} todayWeekStart={todayWeekStart} recipeMap={recipeMap} onPick={setPickerFor} onClear={clearSlot} />}
+        {tab === "recipes" && <RecipesView recipes={recipes} onEdit={r => setRecipeForm({ category: null, ...r })} onNew={() => setRecipeForm({ id: null, name: "", category: null, ingredients: [{ id: uid(), name: "", amount: "" }] })} onImport={() => setImportOpen(true)} onPhotoImport={() => setPhotoImportOpen(true)} onUrlImport={() => setUrlImportOpen(true)} />}
+        {tab === "shopping" && <ShoppingView list={shoppingList} extraItems={extraItems} checked={checked} onToggle={toggleCheck} newExtra={newExtra} setNewExtra={setNewExtra} onAddExtra={addExtra} onRemoveExtra={removeExtra} />}
+        {tab === "ai" && <AIView recipes={recipes} setRecipes={setRecipes} planByWeek={planByWeek} setPlanByWeek={setPlanByWeek} weekKey={weekKey} onAddExtra={addExtraFromAI} aiSettings={aiSettings} setAiSettings={setAiSettings} />}
       </div>
-      {pickerFor && (
-        <RecipePickerModal
-          recipes={recipes}
-          onPick={(rid) => assignSlot(pickerFor.wk, pickerFor.day, pickerFor.slot, rid)}
-          onClose={() => setPickerFor(null)}
-        />
-      )}
-      {recipeForm && (
-        <RecipeFormModal
-          form={recipeForm}
-          onChange={setRecipeForm}
-          onSave={saveRecipe}
-          onClose={() => setRecipeForm(null)}
-          onDelete={recipeForm.id ? () => {
-            deleteRecipe(recipeForm.id);
-            setRecipeForm(null);
-          } : null}
-        />
-      )}
+      {pickerFor && <RecipePickerModal recipes={recipes} onPick={rid => assignSlot(pickerFor.wk, pickerFor.day, pickerFor.slot, rid)} onClose={() => setPickerFor(null)} />}
+      {recipeForm && <RecipeFormModal form={recipeForm} onChange={setRecipeForm} onSave={saveRecipe} onClose={() => setRecipeForm(null)} onDelete={recipeForm.id ? () => { deleteRecipe(recipeForm.id); setRecipeForm(null); } : null} />}
       {importOpen && <ImportModal onImport={bulkImportRecipes} onClose={() => setImportOpen(false)} />}
       {photoImportOpen && <PhotoImportModal onMerge={mergePhotoRecipes} onClose={() => setPhotoImportOpen(false)} />}
       {urlImportOpen && <UrlImportModal onMerge={mergePhotoRecipes} onClose={() => setUrlImportOpen(false)} />}
@@ -773,120 +407,32 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
 // --- ヘッダーコンポーネント ---
 function Header({ familyId, saving, onLogout, onResetFamily }) {
   return (
-    <div style={{
-      position: "sticky",
-      top: 0,
-      zIndex: 20,
-      background: "rgba(255,251,246,0.92)",
-      backdropFilter: "blur(6px)",
-      borderBottom: `1px solid ${C.line}`
-    }}>
-      <div style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "8px 16px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-      }}>
+    <div style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(255,251,246,0.92)", backdropFilter: "blur(6px)", borderBottom: `1px solid ${C.line}` }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 12, color: C.muted, display: "flex", alignItems: "center", gap: "6px" }}>
           <span>家族ID: <strong style={{ color: C.mustard }}>{familyId}</strong></span>
-          <button 
-            onClick={onResetFamily} 
-            style={{
-              padding: "2px 6px", 
-              fontSize: "10px", 
-              color: C.muted, 
-              background: "none", 
-              border: `1px solid ${C.line}`, 
-              borderRadius: "4px", 
-              cursor: "pointer"
-            }}
-          >
-            変更
-          </button>
+          <button onClick={onResetFamily} style={{ padding: "2px 6px", fontSize: "10px", color: C.muted, background: "none", border: `1px solid ${C.line}`, borderRadius: "4px", cursor: "pointer" }}>変更</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: 11, color: C.muted }}>
-            {saving ? "保存中..." : "保存済み"}
-          </span>
-          <button 
-            onClick={onLogout} 
-            style={{
-              fontSize: 11, 
-              color: C.muted, 
-              background: "none", 
-              border: "none", 
-              textDecoration: "underline", 
-              cursor: "pointer",
-              padding: 0
-            }}
-          >
-            ログアウト
-          </button>
+          <span style={{ fontSize: 11, color: C.muted }}>{saving ? "保存中..." : "保存済み"}</span>
+          <button onClick={onLogout} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}>ログアウト</button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- 下部ナビゲーション ---
+// --- ナビゲーション ---
 function BottomNav({ tab, setTab }) {
-  const tabs = [
-    { key: "plan", label: "献立表", icon: CalendarDays },
-    { key: "shopping", label: "買い物リスト", icon: ShoppingCart },
-    { key: "recipes", label: "レシピ帳", icon: BookOpen },
-    { key: "ai", label: "AI提案", icon: ChefHat }
-  ];
+  const tabs = [{ key: "plan", label: "献立表", icon: CalendarDays }, { key: "shopping", label: "買い物リスト", icon: ShoppingCart }, { key: "recipes", label: "レシピ帳", icon: BookOpen }, { key: "ai", label: "AI提案", icon: ChefHat }];
   return (
-    <div
-      style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 30,
-        background: "rgba(255,255,255,0.97)",
-        backdropFilter: "blur(8px)",
-        borderTop: `1px solid ${C.line}`,
-        boxShadow: "0 -4px 14px rgba(43,35,29,0.06)"
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          display: "flex",
-          padding: "6px 8px",
-          paddingBottom: "calc(6px + env(safe-area-inset-bottom))"
-        }}
-      >
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}`, boxShadow: "0 -4px 14px rgba(43,35,29,0.06)" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", padding: "6px 8px", paddingBottom: "calc(6px + env(safe-area-inset-bottom))" }}>
         {tabs.map((t) => {
-          const IconComp = t.icon;
-          const active = tab === t.key;
+          const IconComp = t.icon; const active = tab === t.key;
           return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 3,
-                padding: "8px 4px 6px",
-                borderRadius: 12,
-                border: "none",
-                background: active ? "rgba(255,122,26,0.12)" : "transparent",
-                color: active ? C.mustard : C.muted,
-                fontSize: 11,
-                fontWeight: active ? 700 : 600,
-                cursor: "pointer"
-              }}
-            >
-              <IconComp size={19} strokeWidth={active ? 2.4 : 2} />
-              {t.label}
+            <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "8px 4px 6px", borderRadius: 12, border: "none", background: active ? "rgba(255,122,26,0.12)" : "transparent", color: active ? C.mustard : C.muted, fontSize: 11, fontWeight: active ? 700 : 600, cursor: "pointer" }}>
+              <IconComp size={19} strokeWidth={active ? 2.4 : 2} />{t.label}
             </button>
           );
         })}
@@ -895,210 +441,53 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
-// --- プラン表示 ---
+// --- プラン表示 & 週ブロック ---
 function PlanView({ planByWeek, todayWeekStart, recipeMap, onPick, onClear }) {
-  const [weeksCount, setWeeksCount] = useState(4);
-  const sentinelRef = useRef(null);
+  const [weeksCount, setWeeksCount] = useState(4); const sentinelRef = useRef(null);
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) setWeeksCount((c) => c + 4);
-      },
-      { rootMargin: "800px 0px" }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    const el = sentinelRef.current; if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) setWeeksCount((c) => c + 4); }, { rootMargin: "800px 0px" });
+    obs.observe(el); return () => obs.disconnect();
   }, []);
-  const weekStarts = useMemo(
-    () => Array.from({ length: weeksCount }, (_, wi) => addDays(todayWeekStart, wi * 7)),
-    [weeksCount, todayWeekStart]
-  );
+  const weekStarts = useMemo(() => Array.from({ length: weeksCount }, (_, wi) => addDays(todayWeekStart, wi * 7)), [weeksCount, todayWeekStart]);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {weekStarts.map((weekStart, wi) => (
-        <WeekBlock
-          key={toISODate(weekStart)}
-          weekStart={weekStart}
-          isFirst={wi === 0}
-          plan={planByWeek[toISODate(weekStart)] || emptyWeek()}
-          recipeMap={recipeMap}
-          onPick={onPick}
-          onClear={onClear}
-        />
-      ))}
+      {weekStarts.map((weekStart, wi) => <WeekBlock key={toISODate(weekStart)} weekStart={weekStart} isFirst={wi === 0} plan={planByWeek[toISODate(weekStart)] || emptyWeek()} recipeMap={recipeMap} onPick={onPick} onClear={onClear} />)}
       <div ref={sentinelRef} style={{ height: 1 }} />
-      <div style={{ textAlign: "center", color: C.muted, fontSize: 12, padding: "8px 0 20px" }}>
-        下にスクロールすると続きの週が表示されます
-      </div>
+      <div style={{ textAlign: "center", color: C.muted, fontSize: 12, padding: "8px 0 20px" }}>下にスクロールすると続きの週が表示されます</div>
     </div>
   );
 }
 
-// --- 週ブロック ---
 function WeekBlock({ weekStart, isFirst, plan, recipeMap, onPick, onClear }) {
-  const wk = toISODate(weekStart);
-  const todayISO = toISODate(new Date());
-  const weekEnd = addDays(weekStart, 6);
-  const rangeLabel = `${weekStart.getFullYear()}年 ${formatMonthDay(weekStart)} 〜 ${formatMonthDay(weekEnd)}`;
+  const wk = toISODate(weekStart); const todayISO = toISODate(new Date()); const weekEnd = addDays(weekStart, 6);
   return (
     <div>
-      <div
-        style={{
-          fontFamily: "'Space Mono', monospace",
-          fontSize: 12,
-          color: isFirst ? C.mustard : C.muted,
-          padding: "10px 2px 8px"
-        }}
-      >
-        {isFirst ? "今週 ・ " : ""}
-        {rangeLabel}
-      </div>
-      <div
-        style={{
-          background: C.panel,
-          border: `1px solid ${C.line}`,
-          borderRadius: 12,
-          overflow: "hidden"
-        }}
-      >
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: isFirst ? C.mustard : C.muted, padding: "10px 2px 8px" }}>{isFirst && "今週 ・ "}{weekStart.getFullYear()}年 {formatMonthDay(weekStart)} 〜 {formatMonthDay(weekEnd)}</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "flex", borderBottom: `1px solid ${C.line}`, background: "#FFF1E2" }}>
           <div style={{ width: 34, flexShrink: 0 }} />
-          {SLOTS.map((slot) => (
-            <div
-              key={slot.key}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: "#B8631A",
-                padding: "6px 2px",
-                fontFamily: "'Space Mono', monospace"
-              }}
-            >
-              {slot.label}
-            </div>
-          ))}
+          {SLOTS.map((slot) => <div key={slot.key} style={{ flex: 1, textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "#B8631A", padding: "6px 2px", fontFamily: "'Space Mono', monospace" }}>{slot.label}</div>)}
         </div>
         {DAYS.map((day, i) => {
-          const dateForDay = addDays(weekStart, i);
-          const isToday = toISODate(dateForDay) === todayISO;
-          const isWeekend = i === 0 || i === 6;
+          const dateForDay = addDays(weekStart, i); const isToday = toISODate(dateForDay) === todayISO; const isWeekend = i === 0 || i === 6;
           return (
-            <div
-              key={day}
-              style={{
-                display: "flex",
-                borderBottom: i < 6 ? `1px solid ${C.line}` : "none",
-                borderLeft: isToday ? `3px solid ${C.mustard}` : "3px solid transparent",
-                background: isToday ? "linear-gradient(90deg, rgba(255,166,48,0.16), rgba(255,90,26,0.05) 60%)" : "transparent"
-              }}
-            >
-              <div
-                style={{
-                  width: 34,
-                  flexShrink: 0,
-                  position: "relative",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1,
-                  borderRight: `1px solid ${C.line}`,
-                  padding: "6px 2px"
-                }}
-              >
-                {isToday && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 3,
-                      right: 3,
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, #FFC24B, #FF5A1A)"
-                    }}
-                  />
-                )}
-                <span
-                  style={{
-                    fontFamily: "'Kalam', cursive",
-                    fontSize: 14,
-                    color: isWeekend ? C.tomato : C.cream,
-                    lineHeight: 1
-                  }}
-                >
-                  {day}
-                </span>
-                <span
-                  style={{
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: 9,
-                    color: isToday ? C.mustard : C.muted
-                  }}
-                >
-                  {dateForDay.getDate()}
-                </span>
+            <div key={day} style={{ display: "flex", borderBottom: i < 6 ? `1px solid ${C.line}` : "none", borderLeft: isToday ? `3px solid ${C.mustard}` : "3px solid transparent", background: isToday ? "linear-gradient(90deg, rgba(255,166,48,0.16), rgba(255,90,26,0.05) 60%)" : "transparent" }}>
+              <div style={{ width: 34, flexShrink: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, borderRight: `1px solid ${C.line}`, padding: "6px 2px" }}>
+                {isToday && <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #FFC24B, #FF5A1A)" }} />}
+                <span style={{ fontFamily: "'Kalam', cursive", fontSize: 14, color: isWeekend ? C.tomato : C.cream, lineHeight: 1 }}>{day}</span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: isToday ? C.mustard : C.muted }}>{dateForDay.getDate()}</span>
               </div>
               {SLOTS.map((slot, si) => {
-                const rid = plan[day]?.[slot.key];
-                const recipe = rid ? recipeMap[rid] : null;
+                const rid = plan[day]?.[slot.key]; const recipe = rid ? recipeMap[rid] : null;
                 return (
-                  <button
-                    key={slot.key}
-                    onClick={() => onPick(wk, day, slot.key)}
-                    style={{
-                      flex: 1,
-                      minHeight: 52,
-                      position: "relative",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "4px 4px",
-                      background: "transparent",
-                      border: "none",
-                      borderRight: si < SLOTS.length - 1 ? `1px solid ${C.line}` : "none",
-                      cursor: "pointer"
-                    }}
-                  >
+                  <button key={slot.key} onClick={() => onPick(wk, day, slot.key)} style={{ flex: 1, minHeight: 52, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 4px", background: "transparent", border: "none", borderRight: si < SLOTS.length - 1 ? `1px solid ${C.line}` : "none", cursor: "pointer" }}>
                     {recipe ? (
                       <React.Fragment>
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            color: C.cream,
-                            lineHeight: 1.2,
-                            textAlign: "center",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden"
-                          }}
-                        >
-                          {recipe.name}
-                        </span>
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onClear(wk, day, slot.key);
-                          }}
-                          style={{
-                            position: "absolute",
-                            top: 1,
-                            right: 1,
-                            padding: 3,
-                            display: "flex"
-                          }}
-                        >
-                          <X size={9} color={C.muted} />
-                        </span>
+                        <span style={{ fontSize: 10.5, color: C.cream, lineHeight: 1.2, textAlign: "center", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{recipe.name}</span>
+                        <span onClick={(e) => { e.stopPropagation(); onClear(wk, day, slot.key); }} style={{ position: "absolute", top: 1, right: 1, padding: 3, display: "flex" }}><X size={9} color={C.muted} /></span>
                       </React.Fragment>
-                    ) : (
-                      <Plus size={15} color={C.muted} strokeWidth={2.5} />
-                    )}
+                    ) : <Plus size={15} color={C.muted} strokeWidth={2.5} />}
                   </button>
                 );
               })}
@@ -1110,204 +499,119 @@ function WeekBlock({ weekStart, isFirst, plan, recipeMap, onPick, onClear }) {
   );
 }
 
-// --- レシピ選択モーダル ---
+// --- レシピモーダル & ビュー ---
 function RecipePickerModal({ recipes, onPick, onClose }) {
   const [query, setQuery] = useState("");
   const groups = useMemo(() => {
-    const q = query.trim();
-    const filtered = q ? recipes.filter((r) => r.name.includes(q)) : recipes;
-    const byCat = {};
-    filtered.forEach((r) => {
-      const cat = r.category || categorizeDish(r.name);
-      (byCat[cat] = byCat[cat] || []).push(r);
-    });
-    return DISH_CATEGORY_ORDER.filter((c) => {
-      return byCat[c] && byCat[c].length;
-    }).map((c) => ({ category: c, items: byCat[c] }));
+    const q = query.trim(); const filtered = q ? recipes.filter(r => r.name.includes(q)) : recipes; const byCat = {};
+    filtered.forEach(r => { const cat = r.category || categorizeDish(r.name); (byCat[cat] = byCat[cat] || []).push(r); });
+    return DISH_CATEGORY_ORDER.filter(c => byCat[c]?.length).map(c => ({ category: c, items: byCat[c] }));
   }, [recipes, query]);
-
   return (
     <Modal onClose={onClose} title="レシピを選ぶ">
-      {recipes.length === 0 ? (
-        <p style={{ color: C.muted, fontSize: 14 }}>レシピ帳にレシピを登録してください。</p>
-      ) : (
+      {recipes.length === 0 ? <p style={{ color: C.muted, fontSize: 14 }}>レシピ帳にレシピを登録してください。</p> : (
         <React.Fragment>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="レシピを検索"
-            style={{ ...inputStyle, marginBottom: 14 }}
-          />
-          {groups.length === 0 ? (
-            <p style={{ color: C.muted, fontSize: 14 }}>一致するレシピがありません。</p>
-          ) : (
-            groups.map((g) => (
-              <div key={g.category} style={{ marginBottom: 14 }}>
-                <div
-                  style={{
-                    fontFamily: "'Kalam', cursive",
-                    fontSize: 14,
-                    color: C.mustard,
-                    marginBottom: 6
-                  }}
-                >
-                  {g.category}
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.muted, marginLeft: 6 }}>
-                    {g.items.length}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                  {g.items.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => onPick(r.id)}
-                      style={{
-                        background: C.panel2,
-                        border: `1px solid ${C.line}`,
-                        borderRadius: 8,
-                        padding: "6px 10px",
-                        color: C.cream,
-                        fontSize: 13,
-                        cursor: "pointer"
-                      }}
-                    >
-                      {r.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="レシピを検索" style={{ ...inputStyle, marginBottom: 14 }} />
+          {groups.length === 0 ? <p style={{ color: C.muted, fontSize: 14 }}>一致するレシピがありません。</p> : groups.map(g => (
+            <div key={g.category} style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: "'Kalam', cursive", fontSize: 14, color: C.mustard, marginBottom: 6 }}>{g.category}<span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.muted, marginLeft: 6 }}>{g.items.length}</span></div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{g.items.map(r => <button key={r.id} onClick={() => onPick(r.id)} style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px", color: C.cream, fontSize: 13, cursor: "pointer" }}>{r.name}</button>)}</div>
+            </div>
+          ))}
         </React.Fragment>
       )}
     </Modal>
   );
 }
 
-// --- レシピカテゴリアコーディオン ---
 function RecipeCategoryGroup({ group, onEdit }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginBottom: 10 }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          width: "100%",
-          background: "transparent",
-          border: "none",
-          padding: "6px 2px",
-          cursor: "pointer",
-          textAlign: "left"
-        }}
-      >
-        <ChevronDown
-          size={15}
-          color={C.mustard}
-          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", flexShrink: 0 }}
-        />
-        <span style={{ fontFamily: "'Kalam', cursive", fontSize: 14, color: C.mustard }}>
-          {group.category}
-        </span>
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.muted }}>
-          {group.items.length}
-        </span>
+      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "transparent", border: "none", padding: "6px 2px", cursor: "pointer", textAlign: "left" }}>
+        <ChevronDown size={15} color={C.mustard} style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", flexShrink: 0 }} />
+        <span style={{ fontFamily: "'Kalam', cursive", fontSize: 14, color: C.mustard }}>{group.category}</span>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.muted }}>{group.items.length}</span>
       </button>
       {open && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "2px 2px 4px 21px" }}>
-          {group.items.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => onEdit(r)}
-              style={{
-                background: C.panel,
-                border: `1px solid ${(r.ingredients || []).length ? C.line : "rgba(156,137,122,0.35)"}`,
-                borderRadius: 8,
-                padding: "5px 9px",
-                fontSize: 12.5,
-                color: C.cream,
-                cursor: "pointer",
-                lineHeight: 1.3
-              }}
-            >
-              {r.name}
-            </button>
-          ))}
+          {group.items.map(r => <button key={r.id} onClick={() => onEdit(r)} style={{ background: C.panel, border: `1px solid ${r.ingredients?.length ? C.line : "rgba(156,137,122,0.35)"}`, borderRadius: 8, padding: "5px 9px", fontSize: 12.5, color: C.cream, cursor: "pointer", lineHeight: 1.3 }}>{r.name}</button>)}
         </div>
       )}
     </div>
   );
 }
 
-// --- レシピ帳ビュー ---
 function RecipesView({ recipes, onEdit, onNew, onImport, onPhotoImport, onUrlImport }) {
-  const buildGroups = () => {
-    const byCat = {};
-    recipes.forEach((r) => {
-      const cat = r.category || categorizeDish(r.name);
-      (byCat[cat] = byCat[cat] || []).push(r);
-    });
-    return DISH_CATEGORY_ORDER.filter((c) => {
-      return byCat[c] && byCat[c].length;
-    }).map((c) => ({
-      category: c,
-      items: byCat[c]
-    }));
-  };
-  const groups = buildGroups();
+  const groups = useMemo(() => {
+    const byCat = {}; recipes.forEach(r => { const cat = r.category || categorizeDish(r.name); (byCat[cat] = byCat[cat] || []).push(r); });
+    return DISH_CATEGORY_ORDER.filter(c => byCat[c]?.length).map(c => ({ category: c, items: byCat[c] }));
+  }, [recipes]);
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-        <button
-          onClick={onNew}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            flex: 1,
-            minWidth: 0,
-            background: C.mustard,
-            color: "#26210F",
-            border: "none",
-            borderRadius: 10,
-            padding: "9px 4px",
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis"
-          }}
-        >
-          <Plus size={14} />
-          新しいレシピ
-        </button>
-        <button
-          onClick={onPhotoImport}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            color: C.tomato,
-            border: `1px solid ${C.tomato}`,
-            borderRadius: 10,
-            padding: "9px 4px",
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis"
-          }}
-        >
-          写真から追加
-        </button>
-        <button
-          onClick={onUr
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flex: 1, minWidth: 0, background: C.mustard, color: "#26210F", border: "none", borderRadius: 10, padding: "9px 4px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><Plus size={14} />新しいレシピ</button>
+        <button onClick={onPhotoImport} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flex: 1, minWidth: 0, background: "transparent", color: C.tomato, border: `1px solid ${C.tomato}`, borderRadius: 10, padding: "9px 4px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>写真から追加</button>
+        <button onClick={onUrlImport} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flex: 1, minWidth: 0, background: "transparent", color: C.mustard, border: `1px solid ${C.mustard}`, borderRadius: 10, padding: "9px 4px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>URLから追加</button>
+      </div>
+      {recipes.length === 0 ? <p style={{ color: C.muted, fontSize: 14, textAlign: "center", marginTop: 20 }}>まだレシピがありません。「新しいレシピ」から追加しましょう。</p> : groups.map(g => <RecipeCategoryGroup key={g.category} group={g} onEdit={onEdit} />)}
+      <button onClick={onImport} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", background: "transparent", color: C.muted, border: `1px dashed ${C.line}`, borderRadius: 10, padding: "12px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>一括インポート</button>
+    </div>
+  );
+}
+
+function RecipeFormModal({ form, onChange, onSave, onClose, onDelete }) {
+  const updateIngredient = (idx, field, value) => { const next = [...form.ingredients]; next[idx] = { ...next[idx], [field]: value }; onChange({ ...form, ingredients: next }); };
+  return (
+    <Modal onClose={onClose} title={form.id ? "レシピを編集" : "新しいレシピ"}>
+      <label style={labelStyle}>レシピ名</label>
+      <input value={form.name} onChange={e => onChange({ ...form, name: e.target.value })} placeholder="例: 肉じゃが" style={inputStyle} />
+      <label style={{ ...labelStyle, marginTop: 14 }}>カテゴリ</label>
+      <select value={form.category || ""} onChange={e => onChange({ ...form, category: e.target.value || null })} style={{ ...inputStyle, appearance: "auto" }}>
+        <option value="">自動({categorizeDish(form.name || "")})</option>
+        {DISH_CATEGORY_ORDER.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <label style={{ ...labelStyle, marginTop: 14 }}>材料</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {form.ingredients.map((ing, idx) => (
+          <div key={ing.id} style={{ display: "flex", gap: 6 }}>
+            <input value={ing.name} onChange={e => updateIngredient(idx, "name", e.target.value)} placeholder="材料名" style={{ ...inputStyle, flex: 2 }} />
+            <input value={ing.amount} onChange={e => updateIngredient(idx, "amount", e.target.value)} placeholder="分量" style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={() => onChange({ ...form, ingredients: form.ingredients.filter((_, i) => i !== idx) })} style={iconBtnStyle}><X size={16} color={C.muted} /></button>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => onChange({ ...form, ingredients: [...form.ingredients, { id: uid(), name: "", amount: "" }] })} style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "none", color: C.mustard, fontSize: 13, cursor: "pointer", marginTop: 8, padding: 0 }}><Plus size={13} /> 材料を追加</button>
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={onClose} style={secondaryBtnStyle}>キャンセル</button>
+        <button onClick={() => onSave(form)} style={primaryBtnStyle}>保存</button>
+      </div>
+      {onDelete && <button onClick={onDelete} style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center", width: "100%", background: "transparent", border: "none", color: C.tomato, fontSize: 13, cursor: "pointer", marginTop: 14, padding: 4 }}><Trash2 size={13} /> このレシピを削除</button>}
+    </Modal>
+  );
+}
+
+// --- AI抽出モジュール群 ---
+function PhotoImportModal({ onMerge, onClose }) {
+  const [status, setStatus] = useState("idle"); const [errorMsg, setErrorMsg] = useState(""); const [extracted, setExtracted] = useState([]); const [resultCount, setResultCount] = useState(null);
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setStatus("loading"); setErrorMsg(""); setExtracted([]); setResultCount(null);
+    try {
+      const base64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
+      const prompt = "この画像に写っている料理レシピを抽出してください。次のJSON形式のみを出力してください(説明文やコードブロック記号は不要): [{\"name\": \"料理名\", \"ingredients\": [{\"name\": \"材料名\", \"amount\": \"分量\"}]}]";
+      const res = await fetch(GEMINI_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || "image/jpeg", data: base64 } }] }] }) });
+      if (!res.ok) throw new Error(`APIエラー (${res.status})`);
+      const data = await res.json(); let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const parsed = cleanAndParseJSON(text); setExtracted(parsed.map(r => ({ id: uid(), name: r.name?.trim() || "", ingredients: r.ingredients || [], checked: true }))); setStatus("done");
+    } catch (err) { setErrorMsg(err.message || String(err)); setStatus("error"); }
+  };
+  return (
+    <Modal onClose={onClose} title="写真からレシピを追加">
+      <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>料理本の写真などからAIがレシピを自動抽出します。</p>
+      {resultCount === null && <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px dashed ${C.mustard}`, borderRadius: 10, padding: 16, color: C.mustard, fontWeight: 700, cursor: "pointer", marginBottom: 14 }}>{status === "loading" ? "読み取り中…" : "画像を選ぶ"}<input type="file" accept="image/*" onChange={handleFile} disabled={status === "loading"} style={{ display: "none" }} /></label>}
+      {status === "error" && <div style={{ color: C.tomato, fontSize: 13, marginBottom: 12 }}>{errorMsg}</div>}
+      {extracted.length > 0 && resultCount === null && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+          {extracted.map(it => (
+            <div key={it.id} style={{ back
