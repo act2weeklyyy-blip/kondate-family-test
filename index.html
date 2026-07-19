@@ -67,7 +67,7 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-// --- 1. グローバル定数と初期設定 (最上部に定義を統一) ---
+// --- 1. グローバル定数と初期設定 ---
 const firebaseConfig = {
   apiKey: "AIzaSyBmpmFATX_-GupRJisoBklmXpPA_XD_x4E",
   authDomain: "kondate-family-test.firebaseapp.com",
@@ -144,6 +144,16 @@ const secondaryBtnStyle = {
   fontWeight: 600,
   fontSize: 14,
   cursor: "pointer"
+};
+
+const subTabBtnStyle = {
+  background: "none",
+  border: "none",
+  padding: "6px 12px",
+  color: C.cream,
+  cursor: "pointer",
+  fontSize: "13px",
+  whiteSpace: "nowrap"
 };
 
 const labelStyle = { fontSize: 12, color: C.muted, display: "block", marginBottom: 5 };
@@ -223,7 +233,7 @@ function emptyWeek() {
 const DISH_CATEGORY_ORDER = ["麺類", "ご飯・丼", "粉物・パン", "汁物・鍋", "卵料理", "魚介料理", "肉料理", "野菜・副菜", "その他"];
 const DISH_CATEGORY_KEYWORDS = {
   麺類: ["ラーメン", "うどん", "そば", "パスタ", "麺", "ちゃんぽん", "冷麺", "フォー", "ナポリタン", "カルボナーラ", "ペペロンチーノ", "ジェノベーゼ", "ボンゴレ", "ミートソース", "きしめん"],
-  "ご飯・丼": ["丼", "飯", "ライス", "チャーハン", "雑炊", "おにぎり", "ガパオ", "カレー", "ドリア", "パエリア", "ビビンバ", "リゾット", "寿司", "そばめし"],
+  "ご飯・丼": ["丼", "飯", "ライス", "チャーはん", "炒飯", "ライス", "チャーハン", "雑炊", "おにぎり", "ガパオ", "カレー", "ドリア", "パエリア", "ビビンバ", "リゾット", "寿司", "そばめし"],
   "粉物・パン": ["パン", "ケーキ", "ピザ", "チヂミ", "お好み焼き", "ガレット", "トースト", "餅", "サンド"],
   "汁物・鍋": ["汁", "鍋", "スープ", "シチュー", "スンドゥブ", "煮込み", "おでん"],
   卵料理: ["卵", "たまご", "オムレツ", "巣ごもり"],
@@ -242,6 +252,15 @@ function categorizeDish(name) {
 
 function safeCheckKey(name) {
   return String(name).replace(/[.#$/\[\]]/g, "_");
+}
+
+function cleanAndParseJSON(text) {
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```json/i, "");
+  cleaned = cleaned.replace(/^```/, "");
+  cleaned = cleaned.replace(/```$/, "");
+  cleaned = cleaned.trim();
+  return JSON.parse(cleaned);
 }
 
 const SAMPLE_RECIPES = [
@@ -446,6 +465,14 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
   const [newExtra, setNewExtra] = useState("");
   const skipNextSave = useRef(false);
 
+  // AI条件設定のステート（初期値）
+  const [aiSettings, setAiSettings] = useState({
+    familySize: "大人2人",
+    allergies: "なし",
+    dislikes: "なし",
+    preferences: "バランス重視"
+  });
+
   useEffect(() => {
     const dbRef = db.ref(`families/${familyId}/mealplan`);
     const listener = dbRef.on(
@@ -466,6 +493,12 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
         }
         setExtraItems(data.extraItems || []);
         setChecked(data.checked || {});
+        
+        // AI条件設定をDBから同期
+        if (data.aiSettings) {
+          setAiSettings(data.aiSettings);
+        }
+
         setLoaded(true);
       },
       (err) => {
@@ -485,12 +518,12 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
     }
     setSaving(true);
     const t = setTimeout(() => {
-      db.ref(`families/${familyId}/mealplan`).set({ recipes, planByWeek, extraItems, checked })
+      db.ref(`families/${familyId}/mealplan`).set({ recipes, planByWeek, extraItems, checked, aiSettings })
         .catch((e) => console.error("save failed", e))
         .finally(() => setSaving(false));
     }, 800);
     return () => clearTimeout(t);
-  }, [recipes, planByWeek, extraItems, checked, loaded, familyId]);
+  }, [recipes, planByWeek, extraItems, checked, loaded, familyId, aiSettings]);
 
   const recipeMap = useMemo(() => {
     const m = {};
@@ -613,6 +646,12 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
     setNewExtra("");
   }
 
+  // AI画面などから買い物リストに追加するヘルパー
+  const addExtraFromAI = (text) => {
+    if (!text.trim()) return;
+    setExtraItems((items) => [...items, { id: uid(), text: text.trim(), category: categorize(text) }]);
+  };
+
   function removeExtra(id) {
     setExtraItems((items) => items.filter((i) => i.id !== id));
   }
@@ -644,6 +683,15 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
     const timer = setInterval(cleanup, 60 * 60 * 1e3);
     return () => clearInterval(timer);
   }, [loaded, checked]);
+
+  if (!loaded) {
+    return (
+      <div style={{ ...styles.app, alignItems: "center", justifyContent: "center", display: "flex" }}>
+        <Loader2 className="spin" size={28} color={C.mustard} />
+        <style>{`.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.app}>
@@ -680,6 +728,18 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
             setNewExtra={setNewExtra}
             onAddExtra={addExtra}
             onRemoveExtra={removeExtra}
+          />
+        )}
+        {tab === "ai" && (
+          <AIView
+            recipes={recipes}
+            setRecipes={setRecipes}
+            planByWeek={planByWeek}
+            setPlanByWeek={setPlanByWeek}
+            weekKey={weekKey}
+            onAddExtra={addExtraFromAI}
+            aiSettings={aiSettings}
+            setAiSettings={setAiSettings}
           />
         )}
       </div>
@@ -775,7 +835,8 @@ function BottomNav({ tab, setTab }) {
   const tabs = [
     { key: "plan", label: "献立表", icon: CalendarDays },
     { key: "shopping", label: "買い物リスト", icon: ShoppingCart },
-    { key: "recipes", label: "レシピ帳", icon: BookOpen }
+    { key: "recipes", label: "レシピ帳", icon: BookOpen },
+    { key: "ai", label: "AI提案", icon: ChefHat }
   ];
   return (
     <div
@@ -1249,785 +1310,4 @@ function RecipesView({ recipes, onEdit, onNew, onImport, onPhotoImport, onUrlImp
           写真から追加
         </button>
         <button
-          onClick={onUrlImport}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            color: C.mustard,
-            border: `1px solid ${C.mustard}`,
-            borderRadius: 10,
-            padding: "9px 4px",
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis"
-          }}
-        >
-          URLから追加
-        </button>
-      </div>
-      {recipes.length === 0 ? (
-        <p style={{ color: C.muted, fontSize: 14, textAlign: "center", marginTop: 20 }}>
-          まだレシピがありません。「新しいレシピ」から追加しましょう。
-        </p>
-      ) : (
-        groups.map((g) => <RecipeCategoryGroup key={g.category} group={g} onEdit={onEdit} />)
-      )}
-      <button
-        onClick={onImport}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          width: "100%",
-          background: "transparent",
-          color: C.muted,
-          border: `1px dashed ${C.line}`,
-          borderRadius: 10,
-          padding: "12px",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          marginTop: 6
-        }}
-      >
-        一括インポート
-      </button>
-    </div>
-  );
-}
-
-// --- レシピフォームモーダル ---
-function RecipeFormModal({ form, onChange, onSave, onClose, onDelete }) {
-  function updateIngredient(idx, field, value) {
-    const next = [...form.ingredients];
-    next[idx] = { ...next[idx], [field]: value };
-    onChange({ ...form, ingredients: next });
-  }
-  function addRow() {
-    onChange({ ...form, ingredients: [...form.ingredients, { id: uid(), name: "", amount: "" }] });
-  }
-  function removeRow(idx) {
-    onChange({ ...form, ingredients: form.ingredients.filter((_, i) => i !== idx) });
-  }
-  return (
-    <Modal onClose={onClose} title={form.id ? "レシピを編集" : "新しいレシピ"}>
-      <label style={labelStyle}>レシピ名</label>
-      <input
-        value={form.name}
-        onChange={(e) => onChange({ ...form, name: e.target.value })}
-        placeholder="例: 肉じゃが"
-        style={inputStyle}
-      />
-      <label style={{ ...labelStyle, marginTop: 14 }}>カテゴリ</label>
-      <select
-        value={form.category || ""}
-        onChange={(e) => onChange({ ...form, category: e.target.value || null })}
-        style={{ ...inputStyle, appearance: "auto" }}
-      >
-        <option value="">自動({categorizeDish(form.name || "")})</option>
-        {DISH_CATEGORY_ORDER.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
-      <label style={{ ...labelStyle, marginTop: 14 }}>材料</label>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {form.ingredients.map((ing, idx) => (
-          <div key={ing.id} style={{ display: "flex", gap: 6 }}>
-            <input
-              value={ing.name}
-              onChange={(e) => updateIngredient(idx, "name", e.target.value)}
-              placeholder="材料名"
-              style={{ ...inputStyle, flex: 2 }}
-            />
-            <input
-              value={ing.amount}
-              onChange={(e) => updateIngredient(idx, "amount", e.target.value)}
-              placeholder="分量"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <button onClick={() => removeRow(idx)} style={iconBtnStyle}>
-              <X size={16} color={C.muted} />
-            </button>
-          </div>
-        ))}
-      </div>
-      <button
-        onClick={addRow}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          background: "transparent",
-          border: "none",
-          color: C.mustard,
-          fontSize: 13,
-          cursor: "pointer",
-          marginTop: 8,
-          padding: 0
-        }}
-      >
-        <Plus size={13} /> 材料を追加
-      </button>
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onClose} style={secondaryBtnStyle}>キャンセル</button>
-        <button onClick={() => onSave(form)} style={primaryBtnStyle}>保存</button>
-      </div>
-      {onDelete && (
-        <button
-          onClick={onDelete}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            justifyContent: "center",
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            color: C.tomato,
-            fontSize: 13,
-            cursor: "pointer",
-            marginTop: 14,
-            padding: 4
-          }}
-        >
-          <Trash2 size={13} /> このレシピを削除
-        </button>
-      )}
-    </Modal>
-  );
-}
-
-// --- 写真解析モーダル ---
-function PhotoImportModal({ onMerge, onClose }) {
-  const [status, setStatus] = useState("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [extracted, setExtracted] = useState([]);
-  const [resultCount, setResultCount] = useState(null);
-
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleFile(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setStatus("loading");
-    setErrorMsg("");
-    setExtracted([]);
-    setResultCount(null);
-    try {
-      const base64 = await fileToBase64(file);
-      const prompt =
-        "この画像に写っている料理レシピを抽出してください。ページ内に複数のレシピがあれば全て含めてください。次のJSON形式のみを出力してください(説明文や前書き、コードブロック記号は一切不要): [{\"name\": \"料理名\", \"ingredients\": [{\"name\": \"材料名\", \"amount\": \"分量\"}]}] 材料が読み取れない場合はingredientsを空配列にしてください。";
-      const res = await fetch(GEMINI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }, { inline_data: { mime_type: file.type || "image/jpeg", data: base64 } }]
-            }
-          ]
-        })
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`APIエラー (${res.status}) ${errText.slice(0, 200)}`);
-      }
-      const data = await res.json();
-      var _a, _b, _c, _d;
-      let text = ((_d = (_c = (_b = (_a = data.candidates) == null ? void 0 : _a[0]) == null ? void 0 : _b.content) == null ? void 0 : _c.parts) == null ? void 0 : _d[0].text) || "";
-      text = text.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error("読み取り結果を解析できませんでした。別の画像で試してください。");
-      }
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error("レシピを読み取れませんでした。");
-      }
-      setExtracted(
-        parsed.map((r) => ({
-          id: uid(),
-          name: (r.name || "").trim(),
-          ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
-          checked: true
-        }))
-      );
-      setStatus("done");
-    } catch (err) {
-      setErrorMsg(err.message || String(err));
-      setStatus("error");
-    }
-  }
-
-  function toggleItem(id) {
-    setExtracted((items) => items.map((it) => (it.id === id ? { ...it, checked: !it.checked } : it)));
-  }
-  function updateItemName(id, value) {
-    setExtracted((items) => items.map((it) => (it.id === id ? { ...it, name: value } : it)));
-  }
-
-  function handleAdd() {
-    const selected = extracted.filter((it) => it.checked);
-    const added = onMerge(selected);
-    setResultCount(added);
-  }
-
-  return (
-    <Modal onClose={onClose} title="写真からレシピを追加">
-      <p style={{ fontSize: 12, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>
-        料理本のページやレシピカードの写真を選ぶと、AIが料理名と材料を自動で読み取ります。読み取り結果は必ず確認してから追加してください。
-      </p>
-      {resultCount === null && (
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            border: `1px dashed ${C.mustard}`,
-            borderRadius: 10,
-            padding: "16px",
-            color: C.mustard,
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-            marginBottom: 14
-          }}
-        >
-          {status === "loading" ? "読み取り中…" : "画像を選ぶ"}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFile}
-            disabled={status === "loading"}
-            style={{ display: "none" }}
-          />
-        </label>
-      )}
-      {status === "error" && (
-        <div style={{ color: C.tomato, fontSize: 13, marginBottom: 12, lineHeight: 1.6 }}>
-          {errorMsg}
-        </div>
-      )}
-      {extracted.length > 0 && resultCount === null && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-          {extracted.map((it) => (
-            <div
-              key={it.id}
-              style={{
-                background: it.checked ? C.panel2 : "transparent",
-                border: `1px solid ${C.mustard}`,
-                borderRadius: 9,
-                padding: "10px 12px"
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span
-                  onClick={() => toggleItem(it.id)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 4,
-                    flexShrink: 0,
-                    border: `1.5px solid ${it.checked ? C.mustard : C.muted}`,
-                    background: it.checked ? C.mustard : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer"
-                  }}
-                >
-                  {it.checked && <Check size={11} color="#fff" strokeWidth={3} />}
-                </span>
-                <input
-                  value={it.name}
-                  onChange={(e) => updateItemName(it.id, e.target.value)}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    background: "transparent",
-                    border: "none",
-                    borderBottom: `1px dashed ${C.line}`,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: C.cream,
-                    padding: "2px 0",
-                    outline: "none"
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 4, marginLeft: 24 }}>
-                {it.ingredients.length
-                  ? it.ingredients.map((i) => `${i.name}${i.amount ? `(${i.amount})` : ""}`).join(" / ")
-                  : "材料未検出"}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {resultCount !== null && (
-        <p style={{ color: C.mustard, fontSize: 14, fontWeight: 700, marginBottom: 14 }}>
-          {resultCount}件のレシピを追加しました
-        </p>
-      )}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onClose} style={secondaryBtnStyle}>
-          {resultCount === null ? "キャンセル" : "閉じる"}
-        </button>
-        {resultCount === null && extracted.length > 0 && (
-          <button onClick={handleAdd} style={primaryBtnStyle} disabled={!extracted.some((it) => it.checked)}>
-            選択したレシピを追加
-          </button>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-// --- URL解析モーダル ---
-function UrlImportModal({ onMerge, onClose }) {
-  const [url, setUrl] = useState("");
-  const [status, setStatus] = useState("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [extracted, setExtracted] = useState([]);
-  const [resultCount, setResultCount] = useState(null);
-
-  async function handleFetch() {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    setStatus("loading");
-    setErrorMsg("");
-    setExtracted([]);
-    setResultCount(null);
-    try {
-      const prompt =
-        `次のURLのページに書いてある料理レシピを抽出してください。URL: ${trimmed}
-ページ内に複数のレシピがあれば全て含めてください。次のJSON形式のみを出力してください(説明文や前書き、コードブロック記号は一切不要): [{"name": "料理名", "ingredients": [{"name": "材料名", "amount": "分量"}]}] 材料が読み取れない場合はingredientsを空配列にしてください。`;
-      const res = await fetch(GEMINI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ url_context: {} }]
-        })
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`APIエラー (${res.status}) ${errText.slice(0, 200)}`);
-      }
-      const data = await res.json();
-      var _a, _b, _c, _d;
-      let text = ((_d = (_c = (_b = (_a = data.candidates) == null ? void 0 : _a[0]) == null ? void 0 : _b.content) == null ? void 0 : _c.parts) == null ? void 0 : _d[0].text) || "";
-      text = text.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error("読み取り結果を解析できませんでした。別のURLで試してください。");
-      }
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error("レシピを読み取れませんでした。ページが読み込めない可能性があります。");
-      }
-      setExtracted(
-        parsed.map((r) => ({
-          id: uid(),
-          name: (r.name || "").trim(),
-          ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
-          checked: true
-        }))
-      );
-      setStatus("done");
-    } catch (err) {
-      setErrorMsg(err.message || String(err));
-      setStatus("error");
-    }
-  }
-
-  function toggleItem(id) {
-    setExtracted((items) => items.map((it) => (it.id === id ? { ...it, checked: !it.checked } : it)));
-  }
-  function updateItemName(id, value) {
-    setExtracted((items) => items.map((it) => (it.id === id ? { ...it, name: value } : it)));
-  }
-
-  return (
-    <Modal onClose={onClose} title="URLからレシピを追加">
-      <p style={{ fontSize: 12, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>
-        レシピサイトのURLを貼り付けると、AI guessed料理名と材料を自動で読み取ります。読み取り結果は必ず確認してから追加してください。
-      </p>
-      {resultCount === null && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-            placeholder="https://..."
-            disabled={status === "loading"}
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button
-            onClick={handleFetch}
-            style={{ ...primaryBtnStyle, flex: "0 0 auto", padding: "0 16px" }}
-            disabled={status === "loading" || !url.trim()}
-          >
-            {status === "loading" ? "読み込み中…" : "読み込む"}
-          </button>
-        </div>
-      )}
-      {status === "error" && (
-        <div style={{ color: C.tomato, fontSize: 13, marginBottom: 12, lineHeight: 1.6 }}>
-          {errorMsg}
-        </div>
-      )}
-      {extracted.length > 0 && resultCount === null && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-          {extracted.map((it) => (
-            <div
-              key={it.id}
-              style={{
-                background: it.checked ? C.panel2 : "transparent",
-                border: `1px solid ${C.mustard}`,
-                borderRadius: 9,
-                padding: "10px 12px"
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span
-                  onClick={() => toggleItem(it.id)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 4,
-                    flexShrink: 0,
-                    border: `1.5px solid ${it.checked ? C.mustard : C.muted}`,
-                    background: it.checked ? C.mustard : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer"
-                  }}
-                >
-                  {it.checked && <Check size={11} color="#fff" strokeWidth={3} />}
-                </span>
-                <input
-                  value={it.name}
-                  onChange={(e) => updateItemName(it.id, e.target.value)}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    background: "transparent",
-                    border: "none",
-                    borderBottom: `1px dashed ${C.line}`,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: C.cream,
-                    padding: "2px 0",
-                    outline: "none"
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 4, marginLeft: 24 }}>
-                {it.ingredients.length
-                  ? it.ingredients.map((i) => `${i.name}${i.amount ? `(${i.amount})` : ""}`).join(" / ")
-                  : "材料未検出"}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {resultCount !== null && (
-        <p style={{ color: C.mustard, fontSize: 14, fontWeight: 700, marginBottom: 14 }}>
-          {resultCount}件のレシピを追加しました
-        </p>
-      )}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onClose} style={secondaryBtnStyle}>
-          {resultCount === null ? "キャンセル" : "閉じる"}
-        </button>
-        {resultCount === null && extracted.length > 0 && (
-          <button onClick={handleAdd} style={primaryBtnStyle} disabled={!extracted.some((it) => it.checked)}>
-            選択したレシピを追加
-          </button>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-// --- 一括インポートモーダル ---
-function ImportModal({ onImport, onClose }) {
-  const [text, setText] = useState("");
-  const count = text.split(/[\n,、]/).map((s) => s.trim()).filter(Boolean).length;
-  return (
-    <Modal onClose={onClose} title="レシピを一括インポート">
-      <p style={{ fontSize: 12, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>
-        料理名を改行またはカンマ区切りで貼り付けてください。材料は未登録のレシピとして追加されます(あとで編集できます)。同じ名前のレシピはスキップされます。
-      </p>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="肉じゃが\n生姜焼き\nカレー"
-        rows={10}
-        style={{ ...inputStyle, resize: "vertical", fontFamily: "'Inter', sans-serif" }}
-      />
-      <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>{count}件を追加します</div>
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button onClick={onClose} style={secondaryBtnStyle}>キャンセル</button>
-        <button onClick={() => onImport(text)} style={primaryBtnStyle} disabled={!count}>インポート</button>
-      </div>
-    </Modal>
-  );
-}
-
-// --- 買い物リストビュー ---
-function ShoppingView({ list, extraItems, checked, onToggle, newExtra, setNewExtra, onAddExtra, onRemoveExtra }) {
-  const grouped = useMemo(() => {
-    const byName = {};
-    list.forEach((item) => {
-      byName[item.name] = {
-        key: item.name,
-        label: item.name,
-        amounts: [...item.amounts],
-        category: item.category || "その他",
-        manualIds: []
-      };
-    });
-    extraItems.forEach((item) => {
-      const name = item.text.trim();
-      if (byName[name]) {
-        byName[name].manualIds.push(item.id);
-      } else {
-        byName[name] = {
-          key: name,
-          label: name,
-          amounts: [],
-          category: item.category || "その他",
-          manualIds: [item.id]
-        };
-      }
-    });
-    const uncheckedEntries = [];
-    const checkedEntries = [];
-    Object.values(byName).forEach((entry) => {
-      if (checked[safeCheckKey(entry.key)]) checkedEntries.push(entry);
-      else uncheckedEntries.push(entry);
-    });
-    const byCat = {};
-    uncheckedEntries.forEach((entry) => {
-      if (!byCat[entry.category]) byCat[entry.category] = [];
-      byCat[entry.category].push(entry);
-    });
-    const groups = CATEGORY_ORDER.filter((c) => {
-      return byCat[c] && byCat[c].length;
-    }).map((c) => ({ category: c, items: byCat[c] }));
-    return { groups, doneEntries: checkedEntries };
-  }, [list, extraItems, checked]);
-
-  const allEntries = useMemo(
-    () => [...grouped.groups.flatMap((g) => g.items), ...grouped.doneEntries],
-    [grouped]
-  );
-  const total = allEntries.length;
-  const doneCount = grouped.doneEntries.length;
-  function removeEntry(entry) {
-    entry.manualIds.forEach((id) => onRemoveExtra(id));
-  }
-  return (
-    <div>
-      <div
-        style={{
-          background: C.panel,
-          border: `1px dashed ${C.line}`,
-          borderRadius: 14,
-          padding: "16px 16px 8px",
-          position: "relative"
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-          <span style={{ fontFamily: "'Kalam', cursive", fontSize: 20, color: C.mustard }}>買い物リスト</span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: C.muted }}>{doneCount}/{total}</span>
-        </div>
-        {total === 0 ? (
-          <p style={{ color: C.muted, fontSize: 13, padding: "10px 0 16px" }}>
-            献立表にレシピを割り当てると、材料が自動でここに集まります。
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {grouped.groups.map((group) => (
-              <div key={group.category} style={{ marginBottom: 4 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: C.tomato,
-                    letterSpacing: 0.5,
-                    padding: "10px 2px 4px",
-                    textTransform: "uppercase"
-                  }}
-                >
-                  {group.category}
-                </div>
-                {group.items.map((entry) => (
-                  <ShoppingRow
-                    key={entry.key}
-                    checked={false}
-                    onToggle={() => onToggle(safeCheckKey(entry.key))}
-                    label={entry.label}
-                    sub={entry.amounts.join(" + ")}
-                    onRemove={entry.manualIds.length ? () => removeEntry(entry) : void 0}
-                  />
-                ))}
-              </div>
-            ))}
-            {grouped.doneEntries.length > 0 && (
-              <div style={{ marginBottom: 4 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: C.muted,
-                    letterSpacing: 0.5,
-                    padding: "10px 2px 4px",
-                    textTransform: "uppercase"
-                  }}
-                >
-                  済み(24時間後に自動で消えます)
-                </div>
-                {grouped.doneEntries.map((entry) => (
-                  <ShoppingRow
-                    key={entry.key}
-                    checked={true}
-                    onToggle={() => onToggle(safeCheckKey(entry.key))}
-                    label={entry.label}
-                    sub={entry.amounts.join(" + ")}
-                    onRemove={entry.manualIds.length ? () => removeEntry(entry) : void 0}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 6, padding: "10px 0 4px" }}>
-          <input
-            value={newExtra}
-            onChange={(e) => setNewExtra(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onAddExtra()}
-            placeholder="ほしいものを追加(例: 卵)"
-            style={{ ...inputStyle, background: "rgba(255,255,255,0.03)" }}
-          />
-          <button onClick={onAddExtra} style={{ ...primaryBtnStyle, flex: "0 0 44px", padding: 0 }}>
-            <Plus size={16} style={{ margin: "0 auto" }} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- 買い物行リスト ---
-function ShoppingRow({ checked, onToggle, label, sub, onRemove }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 2px",
-        borderBottom: `1px dotted ${C.line}`
-      }}
-    >
-      <button
-        onClick={onToggle}
-        style={{
-          width: 19,
-          height: 19,
-          borderRadius: 5,
-          border: `1.5px solid ${checked ? C.mustard : C.muted}`,
-          background: checked ? C.mustard : "transparent",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          flexShrink: 0
-        }}
-      >
-        {checked && <Check size={12} color="#26210F" strokeWidth={3} />}
-      </button>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 14,
-            color: checked ? C.muted : C.cream,
-            textDecoration: checked ? "line-through" : "none"
-          }}
-        >
-          {label}
-        </div>
-        {sub && <div style={{ fontSize: 11, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{sub}</div>}
-      </div>
-      {onRemove && <button onClick={onRemove} style={iconBtnStyle}><X size={13} color={C.muted} /></button>}
-    </div>
-  );
-}
-
-// --- 共通ダイアログモーダル ---
-function Modal({ title, onClose, children }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(10,15,11,0.65)",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-        zIndex: 50
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: C.bg,
-          border: `1px solid ${C.line}`,
-          borderRadius: "18px 18px 0 0",
-          padding: "18px 18px 26px",
-          width: "100%",
-          maxWidth: 720,
-          maxHeight: "85vh",
-          overflowY: "auto"
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <span style={{ fontFamily: "'Kalam', cursive", fontSize: 19, color: C.mustard }}>{title}</span>
-          <button onClick={onClose} style={iconBtnStyle}>
-            <X size={18} color={C.muted} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-</script>
-</body>
-</html>
+          onClick={onUr
