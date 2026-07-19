@@ -232,6 +232,14 @@ const DISH_CATEGORY_KEYWORDS = {
   "野菜・副菜": ["サラダ", "煮浸し", "煮つけ", "和え", "きんぴら", "ひじき", "漬け", "野菜", "アボカド", "ポテト", "ゴーヤ", "ニラ"]
 };
 
+function categorizeDish(name) {
+  for (const cat of DISH_CATEGORY_ORDER) {
+    const kws = DISH_CATEGORY_KEYWORDS[cat];
+    if (kws && kws.some((kw) => name.includes(kw))) return cat;
+  }
+  return "その他";
+}
+
 function safeCheckKey(name) {
   return String(name).replace(/[.#$/\[\]]/g, "_");
 }
@@ -258,7 +266,7 @@ const SAMPLE_RECIPES = [
   }
 ];
 
-// --- 2. アイコンコンポーネント群 (Loader2を正しく追加) ---
+// --- 2. アイコンコンポーネント群 ---
 function Icon({ children, size = 16, color = "currentColor", style, strokeWidth = 2, className }) {
   return (
     <svg
@@ -338,6 +346,7 @@ function App() {
   };
 
   const createFamily = async () => {
+    // 0, O, 1, I, L など見分けがつきにくい文字を除外した文字種
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let newId = "";
     for (let i = 0; i < 6; i++) {
@@ -566,6 +575,7 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
     setRecipeForm(null);
   }
 
+  // レシピ削除
   function deleteRecipe(id) {
     setRecipes((rs) => rs.filter((r) => r.id !== id));
     setPlanByWeek((pbw) => {
@@ -1660,7 +1670,7 @@ function UrlImportModal({ onMerge, onClose }) {
   return (
     <Modal onClose={onClose} title="URLからレシピを追加">
       <p style={{ fontSize: 12, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>
-        レシピサイトのURLを貼り付けると、AIが料理名と材料を自動で読み取ります。読み取り結果は必ず確認してから追加してください。
+        レシピサイトのURLを貼り付けると、AI guessed料理名と材料を自動で読み取ります。読み取り結果は必ず確認してから追加してください。
       </p>
       {resultCount === null && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
