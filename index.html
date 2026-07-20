@@ -437,6 +437,7 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
   const [photoImportOpen, setPhotoImportOpen] = useState(false);
   const [urlImportOpen, setUrlImportOpen] = useState(false);
   const [mealPrefs, setMealPrefs] = useState({ allergies: "", dislikes: "", family: "" });
+  const [categoryOrder, setCategoryOrder] = useState(CATEGORY_ORDER);
   const [newExtra, setNewExtra] = useState("");
   const skipNextSave = useRef(false);
   useEffect(() => {
@@ -460,6 +461,13 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
         setExtraItems(data.extraItems || []);
         setChecked(data.checked || {});
         setMealPrefs(data.mealPrefs || { allergies: "", dislikes: "", family: "" });
+        if (Array.isArray(data.categoryOrder) && data.categoryOrder.length) {
+          const saved = data.categoryOrder.filter((c) => CATEGORY_ORDER.includes(c));
+          const missing = CATEGORY_ORDER.filter((c) => !saved.includes(c));
+          setCategoryOrder([...saved, ...missing]);
+        } else {
+          setCategoryOrder(CATEGORY_ORDER);
+        }
         setLoaded(true);
       },
       (err) => {
@@ -478,10 +486,10 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
     }
     setSaving(true);
     const t = setTimeout(() => {
-      firebase.database().ref(`families/${familyId}/mealplan`).set({ recipes, planByWeek, extraItems, checked, mealPrefs }).catch((e) => console.error("save failed", e)).finally(() => setSaving(false));
+      firebase.database().ref(`families/${familyId}/mealplan`).set({ recipes, planByWeek, extraItems, checked, mealPrefs, categoryOrder }).catch((e) => console.error("save failed", e)).finally(() => setSaving(false));
     }, 800);
     return () => clearTimeout(t);
-  }, [recipes, planByWeek, extraItems, checked, mealPrefs, loaded, familyId]);
+  }, [recipes, planByWeek, extraItems, checked, mealPrefs, categoryOrder, loaded, familyId]);
   const recipeMap = useMemo(() => {
     const m = {};
     recipes.forEach((r) => m[r.id] = r);
@@ -714,7 +722,9 @@ function MealPlanner({ familyId, user, onLogout, onResetFamily }) {
       newExtra,
       setNewExtra,
       onAddExtra: addExtra,
-      onRemoveExtra: removeExtra
+      onRemoveExtra: removeExtra,
+      categoryOrder,
+      setCategoryOrder
     }
   ), tab === "ai" && /* @__PURE__ */ React.createElement(AIView, {
     recipes,
@@ -2305,7 +2315,16 @@ function AIView({ recipes, mealPrefs, setMealPrefs, onMergeRecipes, onApplyWeekP
   );
 }
 
-function ShoppingView({ list, extraItems, checked, onToggle, newExtra, setNewExtra, onAddExtra, onRemoveExtra }) {
+function ShoppingView({ list, extraItems, checked, onToggle, newExtra, setNewExtra, onAddExtra, onRemoveExtra, categoryOrder, setCategoryOrder }) {
+  const [showOrder, setShowOrder] = useState(false);
+  const order = categoryOrder && categoryOrder.length ? categoryOrder : CATEGORY_ORDER;
+  function moveCategory(index, dir) {
+    const next = [...order];
+    const target = index + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setCategoryOrder(next);
+  }
   const grouped = useMemo(() => {
     const byName = {};
     list.forEach((item) => {
@@ -2342,12 +2361,12 @@ function ShoppingView({ list, extraItems, checked, onToggle, newExtra, setNewExt
       if (!byCat[entry.category]) byCat[entry.category] = [];
       byCat[entry.category].push(entry);
     });
-    const groups = CATEGORY_ORDER.filter((c) => {
+    const groups = order.filter((c) => {
       var _a;
       return (_a = byCat[c]) == null ? void 0 : _a.length;
     }).map((c) => ({ category: c, items: byCat[c] }));
     return { groups, doneEntries: checkedEntries };
-  }, [list, extraItems, checked]);
+  }, [list, extraItems, checked, order]);
   const allEntries = useMemo(
     () => [...grouped.groups.flatMap((g) => g.items), ...grouped.doneEntries],
     [grouped]
@@ -2368,7 +2387,96 @@ function ShoppingView({ list, extraItems, checked, onToggle, newExtra, setNewExt
         position: "relative"
       }
     },
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "'Kalam', cursive", fontSize: 20, color: C.mustard } }, "\u8CB7\u3044\u7269\u30EA\u30B9\u30C8"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "'Space Mono', monospace", fontSize: 12, color: C.muted } }, doneCount, "/", total)),
+    /* @__PURE__ */ React.createElement(
+      "div",
+      { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 } },
+      /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "'Kalam', cursive", fontSize: 20, color: C.mustard } }, "\u8CB7\u3044\u7269\u30EA\u30B9\u30C8"),
+      /* @__PURE__ */ React.createElement(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 10 } },
+        /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            onClick: () => setShowOrder((v) => !v),
+            style: {
+              fontSize: 11,
+              color: showOrder ? C.panel : C.mustard,
+              background: showOrder ? C.mustard : "transparent",
+              border: `1px solid ${C.mustard}`,
+              borderRadius: 999,
+              padding: "3px 10px",
+              cursor: "pointer"
+            }
+          },
+          "\u5DE1\u56DE\u9806\u3092\u7DE8\u96C6"
+        ),
+        /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "'Space Mono', monospace", fontSize: 12, color: C.muted } }, doneCount, "/", total)
+      )
+    ),
+    showOrder && /* @__PURE__ */ React.createElement(
+      "div",
+      { style: { background: C.panel2, borderRadius: 10, padding: "10px 12px", marginBottom: 12 } },
+      /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: C.cream, opacity: 0.8, marginBottom: 8 } }, "\u3088\u304F\u884C\u304F\u5E97\u306E\u58F2\u308A\u5834\u9806\u306B\u77E2\u5370\u3067\u4E26\u3079\u66FF\u3048\u308B\u3068\u3001\u8CB7\u3044\u7269\u30EA\u30B9\u30C8\u304C\u305D\u306E\u9806\u756A\u3067\u8868\u793A\u3055\u308C\u307E\u3059\u3002"),
+      /* @__PURE__ */ React.createElement(
+        "div",
+        { style: { display: "flex", flexDirection: "column", gap: 6 } },
+        order.map((cat, idx) => /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: cat,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: C.panel,
+              borderRadius: 8,
+              padding: "6px 10px"
+            }
+          },
+          /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: C.cream } }, idx + 1, ". ", cat),
+          /* @__PURE__ */ React.createElement(
+            "div",
+            { style: { display: "flex", gap: 4 } },
+            /* @__PURE__ */ React.createElement(
+              "button",
+              {
+                onClick: () => moveCategory(idx, -1),
+                disabled: idx === 0,
+                style: {
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  border: `1px solid ${C.line}`,
+                  background: idx === 0 ? C.line : C.panel,
+                  color: C.mustard,
+                  cursor: idx === 0 ? "default" : "pointer",
+                  fontSize: 13
+                }
+              },
+              "\u2191"
+            ),
+            /* @__PURE__ */ React.createElement(
+              "button",
+              {
+                onClick: () => moveCategory(idx, 1),
+                disabled: idx === order.length - 1,
+                style: {
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  border: `1px solid ${C.line}`,
+                  background: idx === order.length - 1 ? C.line : C.panel,
+                  color: C.mustard,
+                  cursor: idx === order.length - 1 ? "default" : "pointer",
+                  fontSize: 13
+                }
+              },
+              "\u2193"
+            )
+          )
+        ))
+      )
+    ),
     total === 0 ? /* @__PURE__ */ React.createElement("p", { style: { color: C.muted, fontSize: 13, padding: "10px 0 16px" } }, "\u732E\u7ACB\u8868\u306B\u30EC\u30B7\u30D4\u3092\u5272\u308A\u5F53\u3066\u308B\u3068\u3001\u6750\u6599\u304C\u81EA\u52D5\u3067\u3053\u3053\u306B\u96C6\u307E\u308A\u307E\u3059\u3002") : /* @__PURE__ */ React.createElement(
       "div",
       { style: { display: "flex", flexDirection: "column" } },
